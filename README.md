@@ -38,8 +38,7 @@ define command {
 define contact{
 	name	generic-contact
 	register	0
-	...
-  service_notification_commands	notify-service-by-email-html
+	service_notification_commands	notify-service-by-email-html
 	host_notification_commands	notify-host-by-email-html
 ```
 
