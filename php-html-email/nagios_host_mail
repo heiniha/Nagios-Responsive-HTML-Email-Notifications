@@ -1,0 +1,427 @@
+#!/usr/bin/env php
+
+/*******************************************************************************
+
+Author: Heini Holm Andersen
+Version: 2.1.1
+Build: 1011
+First release created on: 20 March 2015
+Latest build created on: 17 August 2017
+Purpose: For sending out responsive and easy to read email alert notifications.
+--------------------------------------------------------------------------------
+Requirements:
+
+ 1. Copy the php-html-email folder to the Nagios plugins directory and make sure all files are owned by the nagios user and also that they are executable!
+ 2. For the host and services notification alerts, please add these lines to your Nagios commands list:
+
+    # 'notify-host-by-email-html' command definition
+      define command {
+        	command_name	notify-host-by-email-html
+      command_line    $USER1$/php-html-email/nagios_host_mail "$NOTIFICATIONTYPE$" "$HOSTNAME$" "$HOSTALIAS$" "$HOSTSTATE$" "$HOSTADDRESS$" "$HOSTOUTPUT$" "$SHORTDATETIME$" "$CONTACTEMAIL$" "$TOTALHOSTSUP$" "$TOTALHOSTSDOWN$" "$NOTIFICATIONAUTHOR$" "$NOTIFICATIONCOMMENT$" "$LONGDATETIME$" "$HOSTDURATION$" "$HOSTDURATIONSEC$" "$LASTHOSTCHECK$" "$LASTHOSTSTATECHANGE$" "$NOTIFICATIONISESCALATED$" "$HOSTATTEMPT$" "$MAXHOSTATTEMPTS$"
+      }
+
+    # 'notify-service-by-email-html' command definition
+      define command {
+          command_name	notify-service-by-email-html
+      command_line	$USER1$/php-html-email/nagios_service_mail "$NOTIFICATIONTYPE$" "$HOSTNAME$" "$HOSTALIAS$" "$HOSTSTATE$" "$HOSTADDRESS$" "$SERVICEOUTPUT$" "$SHORTDATETIME$" "$SERVICEDESC$" "$SERVICESTATE$" "$CONTACTEMAIL$" "$SERVICEDURATIONSEC$" "$SERVICEEXECUTIONTIME$" "$TOTALSERVICESWARNING$" "$TOTALSERVICESCRITICAL$" "$TOTALSERVICESUNKNOWN$" "$LASTSERVICEOK$" "$LASTSERVICEWARNING$" "$SERVICENOTIFICATIONNUMBER$" "$LONGSERVICEOUTPUT$" "$NOTIFICATIONAUTHOR$" "$NOTIFICATIONCOMMENT$" "$SERVICEDURATION$" "$NOTIFICATIONISESCALATED$" "$SERVICEATTEMPT$" "$MAXSERVICEATTEMPTS$"
+      }
+
+ 3. Add the command names to your contact notifications settings, like seen below:
+    service_notification_commands	notify-service-by-email-html
+    host_notification_commands	notify-host-by-email-html
+
+*******************************************************************************/
+
+<?php
+
+require_once dirname(__FILE__) . '/PHPMailer/PHPMailerAutoload.php';
+
+/* Arguments containing Nagios Alert/Notification Info */
+array_shift($argv);
+$f_notify_type =array_shift($argv);  /*1*/
+$f_host_name =array_shift($argv);  /*2*/
+$f_host_alias =array_shift($argv);  /*3*/
+$f_host_state =array_shift($argv);  /*4*/
+$f_host_address =array_shift($argv);  /*5*/
+$f_host_output =array_shift($argv);  /*6*/
+$f_long_date =array_shift($argv);  /*7*/
+$f_to  =array_shift($argv);  /*8*/
+$f_totalup  =array_shift($argv);  /*9*/
+$f_totaldown=array_shift($argv);  /*10*/
+$f_ackauthor= array_shift($argv);  /*11*/
+$f_ackcomment= array_shift($argv);  /*12*/
+$f_long_datetime= array_shift($argv);  /*13*/
+$f_host_duration= array_shift($argv);  /*14*/
+$f_host_duration_sec= array_shift($argv);  /*15*/
+$f_host_last_state_check= array_shift($argv);  /*16*/
+$f_host_last_state_change= array_shift($argv);  /*17*/
+$f_notification_escalation_state= array_shift($argv);  /*18*/
+$f_host_attempt_state= array_shift($argv);  /*19*/
+$f_max_host_attempt_state= array_shift($argv);  /*20*/
+
+$f_date_year = date("Y");
+
+/* Defaults */
+$f_color="#5D6D7E";
+$f_ackauthor_desc="Acknowledged Author:";
+$f_ackcomment_desc="Acknowledged Comment:";
+
+/* Build type of alert */
+if($f_notify_type=="PROBLEM") {
+  $f_color="#FF0000";
+  $f_ackauthor_desc="Acknowledged Author:";
+  $f_ackcomment_desc="Acknowledged Comment:";
+}
+if($f_notify_type=="RECOVERY") {
+  $f_color="#00FF00";
+  $f_ackauthor_desc="Acknowledged Author:";
+  $f_ackcomment_desc="Acknowledged Comment:";
+}
+if($f_notify_type=="ACKNOWLEDGEMENT") {
+  $f_color="#AEB6BF";
+  $f_ackauthor_desc="Acknowledged Author:";
+  $f_ackcomment_desc="Acknowledged Comment:";
+}
+if($f_notify_type=="FLAPPINGSTART") {
+  $f_color="#800000";
+  $f_ackauthor_desc="Flapping Author:";
+  $f_ackcomment_desc="Flapping Comment:";
+}
+if($f_notify_type=="FLAPPINGSTOP") {
+  $f_color="#008000";
+  $f_ackauthor_desc="Flapping Author:";
+  $f_ackcomment_desc="Flapping Comment:";
+}
+if($f_notify_type=="FLAPPINGDISABLED") {
+  $f_color="#F7FE2E";
+  $f_ackauthor_desc="Flapping Author:";
+  $f_ackcomment_desc="Flapping Comment:";
+}
+if($f_notify_type=="DOWNTIMESTART") {
+  $f_color="#5DADE2";
+  $f_ackauthor_desc="Scheduled Downtime by:";
+  $f_ackcomment_desc="Comment for Scheduled Downtime:";
+}
+if($f_notify_type=="DOWNTIMEEND") {
+  $f_color="#48C9B0";
+  $f_ackauthor_desc="Scheduled Downtime by:";
+  $f_ackcomment_desc="Comment for Scheduled Downtime:";
+}
+if($f_notify_type=="DOWNTIMECANCELLED") {
+  $f_color="#AF7AC5";
+  $f_ackauthor_desc="Scheduled Downtime by:";
+  $f_ackcomment_desc="Comment for Scheduled Downtime:";
+}
+if($f_notify_type=="CUSTOM") {
+  $f_color="#5D6D7E";
+  $f_ackauthor_desc="Custom Author:";
+  $f_ackcomment_desc="Custom Comment:";
+}
+
+/* Check if acknowledgement is present and if so, then add HTML code */
+if($f_ackauthor!="" && $f_ackcomment!=""){
+  $f_ackauthor_status = '
+  <td style="font-size:14px;vertical-align:middle;">
+    <h4 style="font-size:15px;color:#b0b0b0;font-weight:normal;margin:0;padding-left:3%;text-decoration:underline;">' . $f_ackauthor_desc . '</h4>
+    <h2 style="font-size:20px;font-weight:normal;margin:0;padding-left:5%;">' . $f_ackauthor . '</h2>
+  </td>
+  ';
+
+  $f_ackcomment_status = '
+  <td style="font-size:14px;vertical-align:middle;">
+    <h4 style="font-size:15px;color:#b0b0b0;font-weight:normal;margin:0;padding-left:3%;text-decoration:underline;">' . $f_ackcomment_desc . '</h4>
+    <h2 style="font-size:20px;font-weight:normal;margin:0;padding-left:5%;">' . $f_ackcomment . '</h2>
+  </td>
+  ';
+
+  $f_ackauthor_status_none_html = $f_ackauthor_desc;
+  $f_ackauthor_status_none_html .= ' ';
+  $f_ackauthor_status_none_html .=  $f_ackauthor;
+
+  $f_ackcomment_status_none_html = $f_ackcomment_desc;
+  $f_ackcomment_status_none_html .= ' ';
+  $f_ackcomment_status_none_html .= $f_ackcomment;
+}
+
+/* Check if acknowledgement is present and if so, then add HTML code */
+if($f_notification_escalation_state==0){
+  $f_notification_escalation_state_status = '
+  <td style="font-size:14px;vertical-align:middle;">
+    <h4 style="font-size:15px;color:#b0b0b0;font-weight:normal;margin:0;padding-left:3%;text-decoration:underline;">Incident Escalated:</h4>
+    <h2 style="font-size:20px;font-weight:normal;margin:0;padding-left:5%;">No</h2>
+  </td>
+  ';
+
+  $f_notification_escalation_state_status_none_html = 'Incident Escalated: No';
+}
+
+if($f_notification_escalation_state==1){
+  $f_notification_escalation_state_status = '
+  <td style="font-size:14px;vertical-align:middle;">
+    <h4 style="font-size:15px;color:#b0b0b0;font-weight:normal;margin:0;padding-left:3%;text-decoration:underline;">Incident Escalated:</h4>
+    <h2 style="font-size:20px;font-weight:normal;margin:0;padding-left:5%;">Yes</h2>
+  </td>
+  ';
+
+  $f_notification_escalation_state_status_none_html = 'Incident Escalated: Yes';
+}
+
+/* Build the Nagios alert/notification, email body/content */
+/* NONE HTML EMAIL CONTENT */
+$message = '
+***** Nagios *****
+
+Notification Type: ' .$f_notify_type. '
+Hostname: ' .$f_host_name. '
+Hostalias: ' .$f_host_alias. '
+State: ' .$f_host_state. '
+Address: ' .$f_host_address. '
+Date/Time: ' .$f_long_datetime. '
+' .$f_notification_escalation_state_status_none_html. '
+' .$f_ackauthor_status_none_html. '
+' .$f_ackcomment_status_none_html. '
+
+Info:
+' .$f_host_output. '
+
+';
+
+/* HTML EMAIL CONTENT */
+$HTMLmessage = '
+
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width">
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <title>' . $f_host_alias . '</title>
+    <meta name="description" content="Nagios Email Notification Alert">
+    <style type="text/css">
+    /* -------------------------------------
+        RESPONSIVE AND MOBILE FRIENDLY STYLES
+    ------------------------------------- */
+    @media only screen and (max-width: 620px) {
+      table[class=body] h1 {
+        font-size: 28px !important;
+        margin-bottom: 10px !important; }
+      table[class=body] p,
+      table[class=body] ul,
+      table[class=body] ol,
+      table[class=body] td,
+      table[class=body] span,
+      table[class=body] a {
+        font-size: 16px !important; }
+      table[class=body] .wrapper,
+      table[class=body] .article {
+        padding: 10px !important; }
+      table[class=body] .content {
+        padding: 0 !important; }
+      table[class=body] .container {
+        padding: 0 !important;
+        width: 100% !important; }
+      table[class=body] .btn table {
+        width: 100% !important; }
+      table[class=body] .btn a {
+        width: 100% !important; }
+      table[class=body] .img-responsive {
+        height: auto !important;
+        max-width: 100% !important;
+        width: auto !important; }}
+    /* -------------------------------------
+        PRESERVE THESE STYLES IN THE HEAD
+    ------------------------------------- */
+    @media all {
+      .ExternalClass {
+        width: 100%; }
+      .ExternalClass,
+      .ExternalClass p,
+      .ExternalClass span,
+      .ExternalClass font,
+      .ExternalClass td,
+      .ExternalClass div {
+        line-height: 100%; }
+      .apple-link a {
+        color: inherit !important;
+        font-family: inherit !important;
+        font-size: inherit !important;
+        font-weight: inherit !important;
+        line-height: inherit !important;
+        text-decoration: none !important; }
+      .btn-primary table td:hover {
+        background-color: #34495e !important; }
+      .btn-primary a:hover {
+        background-color: #34495e !important;
+        border-color: #34495e !important; } }
+    </style>
+
+    <link href="https://font.internet.fo:8443/stylesheet.css" rel="stylesheet">
+    <style>
+      body{
+          font-family: CoconPro-BoldCond;
+      }
+    </style>
+
+  </head>
+  <body class="" style="background-color:#f6f6f6;-webkit-font-smoothing:antialiased;font-size:14px;line-height:1.4;margin:0;padding:0;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;">
+    <table border="0" cellpadding="0" cellspacing="0" class="body" style="border-collapse:separate;mso-table-lspace:0pt;mso-table-rspace:0pt;background-color:#f6f6f6;width:100%;padding-top:8px;">
+      <tr>
+        <td style="font-size:14px;vertical-align:top;">&nbsp;</td>
+        <td class="container" style="font-size:14px;vertical-align:top;display:block;max-width:580px;padding:10px;width:580px;Margin:0 auto !important;">
+          <div class="content" style="box-sizing:border-box;display:block;Margin:0 auto;max-width:98%;padding:10px;">
+            <!-- START CENTERED WHITE CONTAINER -->
+            <span class="preheader" style="color:transparent;display:none;height:0;max-height:0;max-width:0;opacity:0;overflow:hidden;mso-hide:all;visibility:hidden;width:0;">[' .$f_notify_type. '] Host: ' .$f_host_alias. ' (' .$f_host_name. ') is ' .$f_host_state. '. ***************************************************************************************************************************************</span>
+            <table class="main" style="border-collapse:separate;mso-table-lspace:0pt;mso-table-rspace:0pt;background:#fff;width:100%;border-style: solid;border-color: #d3d3d3;border-width: 2px;-webkit-border-radius: 25px;-moz-border-radius: 25px;border-radius: 25px;">
+              <!-- START MAIN CONTENT AREA -->
+              <tr>
+                <td class="wrapper" style="font-size:14px;vertical-align:top;box-sizing:border-box;padding:30px;">
+                  <table border="0" cellpadding="0" cellspacing="0" style="border-collapse:separate;mso-table-lspace:0pt;mso-table-rspace:0pt;width:100%;border-top-style: solid;border-left-style: solid;border-right-style: solid;border-color: #d3d3d3;border-width: 1px;-webkit-border-top-right-radius: 25px;-webkit-border-top-left-radius: 25px;-moz-border-top-right-radius: 25px;-moz-border-top-left-radius: 25px;border-top-right-radius: 25px;border-top-left-radius: 25px;">
+                    <tbody>
+                      <tr>
+                        <td style="background-color:#424242;font-size:14px;-webkit-border-top-right-radius: 25px;-webkit-border-top-left-radius: 25px;-moz-border-top-right-radius: 25px;-moz-border-top-left-radius: 25px;border-top-right-radius: 25px;border-top-left-radius: 25px;">
+                          <h2 style="font-weight:normal;color:#ffffff;margin:0;text-align:center;">Alert Notification</h2>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="background-color:' .$f_color. ';font-size:14px;">
+                          <h1 style="padding:0;margin:10px;font-weight:normal;color:#ffffff;text-align:center;">' .$f_notify_type. '</h1>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                  <table border="0" cellpadding="0" cellspacing="0" style="border-collapse:separate;mso-table-lspace:0pt;mso-table-rspace:0pt;width:100%;border-left-style: solid;border-right-style: solid;border-color: #d3d3d3;border-width: 1px;">
+                    <td style="font-size:16px;vertical-align:top;">&nbsp;</td>
+                    <tbody>
+                      <tr>
+                        <td style="font-size:14px;vertical-align:middle;">
+                          <h5 style="color:#b0b0b0;font-weight:lighter;margin:0;text-align:right;padding-right:5%;">' . $f_host_attempt_state . '/' . $f_max_host_attempt_state . '</h5>
+                          <h4 style="font-size:15px;color:#b0b0b0;font-weight:normal;margin:0;text-align:center;text-decoration:underline;">Host:</h4>
+                          <h2 style="font-size:26px;font-weight:normal;margin:0;text-align:center;">' . $f_host_name . '</h2>
+                          <h5 style="color:#b0b0b0;font-weight:normal;margin:0;text-align:center;">is</h5>
+                          <h1 style="font-size:30px;font-weight:normal;margin:0;color:' .$f_color. ';text-align:center;">' . $f_host_state . '</h1>
+                          <h5 style="color:#b0b0b0;font-weight:normal;margin:0;text-align:center;">for: ' . $f_host_duration . '</h5>
+                        </td>
+                      </tr>
+                    </tbody>
+                    <td style="font-size:9px;vertical-align:top;">&nbsp;</td>
+                    <tbody>
+                      <tr>
+                        <td style="font-size:14px;vertical-align:middle;">
+                          <h4 style="font-size:15px;color:#b0b0b0;font-weight:normal;margin:0;padding-left:3%;text-decoration:underline;">Hostalias:</h4>
+                          <h2 style="font-size:20px;font-weight:normal;margin:0;padding-left:5%;">' . $f_host_alias . '</h2>
+                        </td>
+                      </tr>
+                    </tbody>
+                    <td style="font-size:9px;vertical-align:top;">&nbsp;</td>
+                    <tbody>
+                      <tr>
+                        <td style="font-size:14px;vertical-align:middle;">
+                          <h4 style="font-size:15px;color:#b0b0b0;font-weight:normal;margin:0;padding-left:3%;text-decoration:underline;">Host Address:</h4>
+                          <h2 style="font-size:20px;font-weight:normal;margin:0;padding-left:5%;">' . $f_host_address . '</h2>
+                        </td>
+                      </tr>
+                    </tbody>
+                    <td style="font-size:9px;vertical-align:top;">&nbsp;</td>
+                    <tbody>
+                      <tr>
+                        <td style="font-size:14px;vertical-align:middle;">
+                          <h4 style="font-size:15px;color:#b0b0b0;font-weight:normal;margin:0;padding-left:3%;text-decoration:underline;">Last Check:</h4>
+                          <h2 style="font-size:20px;font-weight:normal;margin:0;padding-left:5%;">' . $f_long_date . '</h2>
+                        </td>
+                      </tr>
+                    </tbody>
+                    <td style="font-size:9px;vertical-align:top;">&nbsp;</td>
+                    <tbody>
+                      <tr>
+                        <td style="font-size:14px;vertical-align:middle;">
+                          <h4 style="font-size:15px;color:#b0b0b0;font-weight:normal;margin:0;padding-left:3%;text-decoration:underline;">Status Information:</h4>
+                          <h2 style="font-size:20px;font-weight:normal;margin:0;padding-left:5%;">' . $f_host_output . '</h2>
+                        </td>
+                      </tr>
+                    </tbody>
+                    <td style="font-size:9px;vertical-align:top;">&nbsp;</td>
+                    <tbody>
+                      <tr>
+                        ' . $f_notification_escalation_state_status . '
+                      </tr>
+                    </tbody>
+                    <td style="font-size:9px;vertical-align:top;">&nbsp;</td>
+                    <tbody>
+                      <tr>
+                        ' . $f_ackauthor_status . '
+                      </tr>
+                    </tbody>
+                    <td style="font-size:9px;vertical-align:top;">&nbsp;</td>
+                    <tbody>
+                      <tr>
+                        ' . $f_ackcomment_status . '
+                      </tr>
+                    </tbody>
+                    <td style="font-size:16px;vertical-align:top;">&nbsp;</td>
+                  </table>
+                  <table border="0" cellpadding="0" cellspacing="0" style="border-collapse:separate;mso-table-lspace:0pt;mso-table-rspace:0pt;width:100%;border-bottom-style: solid;border-left-style: solid;border-right-style: solid;border-color: #d3d3d3;border-width: 1px;-webkit-border-bottom-right-radius: 25px;-webkit-border-bottom-left-radius: 25px;-moz-border-bottom-right-radius: 25px;-moz-border-bottom-left-radius: 25px;border-bottom-right-radius: 25px;border-bottom-left-radius: 25px;">
+                    <tbody>
+                      <tr>
+                        <td style="background-color:' .$f_color. ';font-size:14px;">
+                          <h1 style="padding:0;margin:10px;font-weight:normal;color:#ffffff;text-align:center;">' .$f_notify_type. '</h1>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="background-color:#424242;font-size:14px;-webkit-border-bottom-right-radius: 25px;-webkit-border-bottom-left-radius: 25px;-moz-border-bottom-right-radius: 25px;-moz-border-bottom-left-radius: 25px;border-bottom-right-radius: 25px;border-bottom-left-radius: 25px;">
+                          <h2 style="font-weight:normal;color:#ffffff;margin:0;text-align:center;">Alert Notification</h2>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </td>
+              </tr>
+              <!-- END MAIN CONTENT AREA -->
+            </table>
+            <!-- START FOOTER -->
+            <div class="footer" style="clear:both;padding-top:10px;text-align:center;width:100%;">
+              <table border="0" cellpadding="0" cellspacing="0" style="border-collapse:separate;mso-table-lspace:0pt;mso-table-rspace:0pt;width:100%;">
+                <tr>
+                  <td class="content-block" style="font-size:14px;vertical-align:middle;color:#999999;font-size:12px;text-align:center;">
+                    <span class="apple-link" style="color:#999999;font-size:11px;text-align:center;">Copyright &#169; 2014-' .$f_date_year. ' &#124; <a href="mailto:hhan@mail.fo?subject=Nagios-HTML-Email-Notifications" style="text-decoration:underline;color:#000000;font-weight:bold;">Heini Holm Andersen</a></span>
+                    <br>
+                    <span class="apple-link" style="color:#999999;font-size:10px;text-align:center;">All Rights Reserved.</span>
+                    <br>
+                    <br>
+                  </td>
+                </tr>
+              </table>
+            </div>
+            <!-- END FOOTER -->
+            <!-- END CENTERED WHITE CONTAINER -->
+          </div>
+        </td>
+        <td style="font-size:14px;vertical-align:top;">&nbsp;</td>
+      </tr>
+    </table>
+  </body>
+</html>
+';
+
+$mail = new PHPMailer;
+//$mail->SMTPDebug = 3; // Enable verbose debug output
+$mail->isSMTP(); // Set mailer to use SMTP
+$mail->Host = 'localhost';	// Specify main and backup SMTP servers
+$mail->SMTPAuth = false; // Enable SMTP authentication
+
+$mail->From = 'nagios@localhost.com';
+$mail->FromName = 'Nagios';
+$mail->addAddress($f_to); // Add a recipient + Name is optional "$mail->addAddress('joe@example.net', 'Joe User');"
+$mail->isHTML(true); // Set email format to HTML
+$mail->WordWrap = 50; // Set word wrap to 50 characters
+
+$mail->Subject = '*** '.$f_notify_type.': '.$f_host_name.' is '.$f_host_state.' ***';
+$mail->AltBody = $message;
+$mail->Body = $HTMLmessage;
+
+if(!$mail->send()) {
+	echo 'Message could not be sent.<br>';
+	echo 'Mailer Error: ' . $mail->ErrorInfo . '<br>';
+} else {
+	echo 'Message has been sent<br>';
+}
+
+?>
