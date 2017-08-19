@@ -43,3 +43,25 @@ define contact{
 ```
 
 * Restart Nagios to pick up the changes.
+
+## PHPMailer Configuration
+
+Open up these files and and scroll to the bottom to find the default configuration using PHPMailer. Say, to make it send email to your Gmail via Google SMTP server, just follow the configuration as stated.
+```
+<repo>/php-html-email/nagios_host_mail
+<repo>/php-html-email/nagios_service_mail
+```
+
+### Using Gmail SMTP
+
+```
+$mail = new PHPMailer;
+#$mail->SMTPDebug = 3;
+$mail->isSMTP();
+$mail->SMTPAuth = true;
+$mail->SMTPSecure = 'tls';
+$mail->Host = 'smtp.gmail.com';
+$mail->Port = 587;
+$mail->Username = 'someone@example.com';
+$mail->Password = 'somepassword';
+```
