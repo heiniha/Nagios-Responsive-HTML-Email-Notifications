@@ -19,13 +19,13 @@ Requirements:
     # 'notify-host-by-email-html' command definition
       define command {
         	command_name	notify-host-by-email-html
-      command_line    $USER1$/php-html-email/nagios_host_mail "$NOTIFICATIONTYPE$" "$HOSTNAME$" "$HOSTALIAS$" "$HOSTSTATE$" "$HOSTADDRESS$" "$HOSTOUTPUT$" "$SHORTDATETIME$" "$CONTACTEMAIL$" "$TOTALHOSTSUP$" "$TOTALHOSTSDOWN$" "$NOTIFICATIONAUTHOR$" "$NOTIFICATIONCOMMENT$" "$LONGDATETIME$" "$HOSTDURATION$" "$HOSTDURATIONSEC$" "$LASTHOSTCHECK$" "$LASTHOSTSTATECHANGE$" "$NOTIFICATIONISESCALATED$" "$HOSTATTEMPT$" "$MAXHOSTATTEMPTS$"
+      command_line    $USER1$/php-html-email/nagios_host_mail "$NOTIFICATIONTYPE$" "$HOSTNAME$" "$HOSTALIAS$" "$HOSTSTATE$" "$HOSTADDRESS$" "$HOSTOUTPUT$" "$SHORTDATETIME$" "$CONTACTEMAIL$" "$TOTALHOSTSUP$" "$TOTALHOSTSDOWN$" "$NOTIFICATIONAUTHOR$" "$NOTIFICATIONCOMMENT$" "$LONGDATETIME$" "$HOSTDURATION$" "$HOSTDURATIONSEC$" "$LASTHOSTCHECK$" "$LASTHOSTSTATECHANGE$" "$NOTIFICATIONISESCALATED$" "$HOSTATTEMPT$" "$MAXHOSTATTEMPTS$" "$NOTIFICATIONRECIPIENTS$"
       }
 
     # 'notify-service-by-email-html' command definition
       define command {
           command_name	notify-service-by-email-html
-      command_line	$USER1$/php-html-email/nagios_service_mail "$NOTIFICATIONTYPE$" "$HOSTNAME$" "$HOSTALIAS$" "$HOSTSTATE$" "$HOSTADDRESS$" "$SERVICEOUTPUT$" "$SHORTDATETIME$" "$SERVICEDESC$" "$SERVICESTATE$" "$CONTACTEMAIL$" "$SERVICEDURATIONSEC$" "$SERVICEEXECUTIONTIME$" "$TOTALSERVICESWARNING$" "$TOTALSERVICESCRITICAL$" "$TOTALSERVICESUNKNOWN$" "$LASTSERVICEOK$" "$LASTSERVICEWARNING$" "$SERVICENOTIFICATIONNUMBER$" "$LONGSERVICEOUTPUT$" "$NOTIFICATIONAUTHOR$" "$NOTIFICATIONCOMMENT$" "$SERVICEDURATION$" "$NOTIFICATIONISESCALATED$" "$SERVICEATTEMPT$" "$MAXSERVICEATTEMPTS$"
+      command_line	$USER1$/php-html-email/nagios_service_mail "$NOTIFICATIONTYPE$" "$HOSTNAME$" "$HOSTALIAS$" "$HOSTSTATE$" "$HOSTADDRESS$" "$SERVICEOUTPUT$" "$SHORTDATETIME$" "$SERVICEDESC$" "$SERVICESTATE$" "$CONTACTEMAIL$" "$SERVICEDURATIONSEC$" "$SERVICEEXECUTIONTIME$" "$TOTALSERVICESWARNING$" "$TOTALSERVICESCRITICAL$" "$TOTALSERVICESUNKNOWN$" "$LASTSERVICEOK$" "$LASTSERVICEWARNING$" "$SERVICENOTIFICATIONNUMBER$" "$LONGSERVICEOUTPUT$" "$NOTIFICATIONAUTHOR$" "$NOTIFICATIONCOMMENT$" "$SERVICEDURATION$" "$NOTIFICATIONISESCALATED$" "$SERVICEATTEMPT$" "$MAXSERVICEATTEMPTS$" "$NOTIFICATIONRECIPIENTS$"
       }
 
  3. Add the command names to your contact notifications settings, like seen below:
@@ -60,6 +60,7 @@ $f_host_last_state_change= array_shift($argv);  /*17*/
 $f_notification_escalation_state= array_shift($argv);  /*18*/
 $f_host_attempt_state= array_shift($argv);  /*19*/
 $f_max_host_attempt_state= array_shift($argv);  /*20*/
+$f_all_recipients= array_shift($argv);  /*21*/
 
 $f_date_year = date("Y");
 
@@ -390,6 +391,15 @@ $HTMLmessage = '
                     <td width="98%" style="vertical-align:middle;font-size:14px;width:98%;margin:0 10px 0 10px;">
                       <h4 style="font-family: CoconPro-BoldCond, Open Sans, Verdana, sans-serif; margin:0; font-size:15px; color:#b0b0b0; padding-left:3%;text-decoration:underline;">Status Information:</h4>
                       <h2 style="font-family: CoconPro-BoldCond, Open Sans, Verdana, sans-serif; margin:0; font-size:20px; padding-left:5%;">' . $f_host_output . '</h2>
+                    </td>
+                  </tr>
+                </tbody>
+                <td style="font-size:9px;vertical-align:top;">&nbsp;</td>
+                <tbody>
+                  <tr>
+                    <td width="98%" style="vertical-align:middle;font-size:14px;width:98%;margin:0 10px 0 10px;">
+                      <h4 style="font-family: CoconPro-BoldCond, Open Sans, Verdana, sans-serif; margin:0; font-size:15px; color:#b0b0b0; padding-left:3%;text-decoration:underline;">Notified Recipients:</h4>
+                      <h2 style="font-family: CoconPro-BoldCond, Open Sans, Verdana, sans-serif; margin:0; font-size:20px; padding-left:5%;">' . $f_all_recipients . '</h2>
                     </td>
                   </tr>
                 </tbody>
