@@ -3,10 +3,10 @@
 /*******************************************************************************
 
 Author: Heini Holm Andersen
-Version: 2.1.1
+Version: 2.1.2
 Build: 1011
 First release created on: 20 March 2015
-Latest build created on: 17 August 2017
+Latest build created on: 25 September 2017
 Purpose: For sending out responsive and easy to read email alert notifications.
 
 --------------------------------------------------------------------------------
@@ -203,7 +203,7 @@ $HTMLmessage = '
     <![endif]-->
 
     <!--[if !mso]><!-->
-        <link href="https://font.internet.fo:8443/stylesheet.css" rel="stylesheet" type="text/css">
+        <link href="https://font.internet.fo/stylesheet.css" rel="stylesheet" type="text/css">
         <link href="https://fonts.googleapis.com/css?family=Open+Sans" rel="stylesheet">
     <!--<![endif]-->
 
