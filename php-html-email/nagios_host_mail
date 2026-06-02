@@ -485,6 +485,9 @@ $mail->addAddress($f_to); // Add a recipient + Name is optional "$mail->addAddre
 $mail->isHTML(true); // Set email format to HTML
 $mail->WordWrap = 50; // Set word wrap to 50 characters
 
+$mail->CharSet = 'UTF-8';
+$mail->Encoding = 'base64';
+
 $mail->Subject = '*** '.$f_notify_type.': '.$f_host_name.' is '.$f_host_state.' ***';
 $mail->AltBody = $message;
 $mail->Body = $HTMLmessage;
